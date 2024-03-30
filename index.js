@@ -13,7 +13,7 @@ const cerealNFT_ABI = require("./planet/CerealNFT_ABI.json");
 const cerealSBT_ABI = require("./planet/CerealSBT_ABI.json");
 
 /*address*/
-const cerealNFT_address = "0x25d666B749DFD24092354bd19a10FB093175C4a9"; // 자신의 컨트랙트 주소
+const cerealNFT_address = "0x10Ed3e6dcfdCdcfc0E9e86adC9F843498F5f9071"; // 자신의 컨트랙트 주소
 const cerealSBT_address = "0x89702df8c0C0d658E8D540d448b563910F1009Cb"; 
 
 /*contract*/
@@ -80,51 +80,110 @@ async function fn_nft_mint(_targetAddress, _type) {
 }
 //--------------------------------------------------------------
 //--------------------------------------------------------------
+app.get('/nft/:userSeq', async function(req, res) {
+  //let num = req.params.userId;
+  const str = req.params.userSeq;
 
+  //userId mapping
+  let userAddress = commonJs.fn_whois(str);
+  // userId와 tokenId를 사용하여 필요한 로직 수행
+  // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
+  const result = await fn_NFT_Info_ALL(userAddress);
 
-//--------------------------------------------------------------
-//--------------------------------------------------------------
-app.get('/nft/:userId/:tokenId', async function(req, res) {
-    let userId = req.params.userId;
-    const tokenId = req.params.tokenId;
-  
-    //userId mapping
-    userId = commonJs.fn_whois(userId);
-    // userId와 tokenId를 사용하여 필요한 로직 수행
-    // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
-    const imageURI = await fn_NFT_Info(userId, tokenId);
-  
-    // 결과 반환
-    res.send({ "result" : imageURI });
+  // 결과 반환
+  res.send({ "result" : result });
 });
-async function fn_NFT_Info() {
-    let httpImageURI;
+async function fn_NFT_Info_ALL(_userWalletId) {
+  console.log("_userWalletId : "+_userWalletId);
+  let result;
 
-    try {
-        const tokenURI = await cerealSBT_contract.methods.tokenURI(tokenId).call();
-    
-        // IPFS 프로토콜을 HTTP 프로토콜로 변경
-        const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
-    
-        // HTTP 요청을 보내 JSON 데이터 가져오기
-        const response = await axios.get(httpURI);
-        const jsonData = response.data;
-    
-        // image 값 추출
-        const imageURI = jsonData.image;
-    
-        // image URI에서 IPFS 프로토콜을 HTTP 프로토콜로 변경
-        httpImageURI = imageURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
-        console.log('httpImageURI : '+httpImageURI);
-        // 결과 반환
-        //res.send({ "result": httpImageURI });
-      } catch (error) {
-        console.error('Error:', error);
-        res.status(500).send({ error: 'Internal Server Error' });
+  try {
+      const bigIntArray = await cerealNFT_contract.methods.getOwnedTokens(_userWalletId).call();
+      const data = [];
+      console.log(bigIntArray);
+
+      const intArray = bigIntArray.map(bigInt => Number(bigInt));
+      console.log(intArray);
+
+      for (let i = 0; i < intArray.length; i++) {
+          
+          const tokenURI = await cerealNFT_contract.methods.tokenURI(intArray[i]).call();
+  
+          // IPFS 프로토콜을 HTTP 프로토콜로 변경
+          const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+  
+         // HTTP 요청을 보내 JSON 데이터 가져오기
+          const response = await axios.get(httpURI);
+          const jsonData = response.data;
+
+          console.log(jsonData);
+          const levelStr = jsonData.attributes.find(attr => attr.trait_type === 'level').value;
+
+
+          data.push({
+              tokenId: intArray[i],
+              level: levelStr
+            });
+          console.log('-------');
       }
 
-    return httpImageURI;
-  // 함수 내용
+      result = {
+          totalCnt: intArray.length,
+          data: data
+        };
+
+    } catch (error) {
+      console.error('Error:', error);
+      res.status(500).send({ error: 'Internal Server Error' });
+    }
+
+  return result;
+// 함수 내용
+}
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+app.get('/nft/token/:tokenId', async function(req, res) {
+  //let num = req.params.userId;
+  const tokenId = req.params.tokenId;
+
+  //userId mapping
+  //let userAddress = fn_whois(num);
+  // userId와 tokenId를 사용하여 필요한 로직 수행
+  // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
+  const imageURI = await fn_NFT_Info(tokenId);
+
+  // 결과 반환
+  res.send({ "result" : imageURI });
+});
+async function fn_NFT_Info(_tokenId) {
+  let httpImageURI;
+
+  try {
+      const tokenURI = await cerealNFT_contract.methods.tokenURI(_tokenId).call();
+  
+      // IPFS 프로토콜을 HTTP 프로토콜로 변경
+      const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+  
+      // HTTP 요청을 보내 JSON 데이터 가져오기
+      const response = await axios.get(httpURI);
+      const jsonData = response.data;
+  
+      // image 값 추출
+      const imageURI = jsonData.image;
+  
+      // image URI에서 IPFS 프로토콜을 HTTP 프로토콜로 변경
+      httpImageURI = imageURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+      console.log('httpImageURI : '+httpImageURI);
+      // 결과 반환
+      //res.send({ "result": httpImageURI });
+    } catch (error) {
+      console.error('Error:', error);
+      res.status(500).send({ error: 'Internal Server Error' });
+    }
+
+  return httpImageURI;
+// 함수 내용
 }
 //--------------------------------------------------------------
 //--------------------------------------------------------------
