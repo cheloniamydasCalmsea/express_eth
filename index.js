@@ -1,14 +1,26 @@
 const express = require('express');
 const app = express();
+const axios = require('axios');
+const commonJs = require('./ethseoul/func/common');
 
 const { Web3 } = require('web3');
 const infuraUrl = "https://sepolia.infura.io/v3/2a5309849a3b4bdb8f702969c17dd3cb";
 const web3 = new Web3(infuraUrl);
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+/*abi*/
+const cerealNFT_ABI = require("./planet/CerealNFT_ABI.json");
+const cerealSBT_ABI = require("./planet/CerealSBT_ABI.json");
 
-const planet_abi = require("./planet/PlanetNFTABI.json");
-const abi = planet_abi;
-const contractAddress = "0xE37c702F98134183baCC3d4EA229BB03c7cC182d"; // 자신의 컨트랙트 주소
-const planetContract = new web3.eth.Contract(abi, contractAddress);
+/*address*/
+const cerealNFT_address = "0x25d666B749DFD24092354bd19a10FB093175C4a9"; // 자신의 컨트랙트 주소
+const cerealSBT_address = "0x89702df8c0C0d658E8D540d448b563910F1009Cb"; 
+
+/*contract*/
+const cerealNFT_contract = new web3.eth.Contract(cerealNFT_ABI, cerealNFT_address);
+const cerealSBT_contract = new web3.eth.Contract(cerealSBT_ABI, cerealSBT_address);
+//--------------------------------------------------------------
+//--------------------------------------------------------------
 const privateKey = "7da1571d757f5c55fd8072f099168804c0a6ff6fa2c5d0171b896df411907031";
 // Creating a signing account from a private key
 
@@ -16,7 +28,7 @@ const privateKey = "7da1571d757f5c55fd8072f099168804c0a6ff6fa2c5d0171b896df41190
 app.use(express.json());
 //--------------------------------------------------------------
 //--------------------------------------------------------------
-
+/* main */
 var server = app.listen(3000, function(){
     var host = server.address().address;
     var port = server.address().port;
@@ -26,67 +38,20 @@ var server = app.listen(3000, function(){
     console.log("Listening...");
 
 });
-
 //--------------------------------------------------------------
 //--------------------------------------------------------------
-app.post('/setSaleActive', async function(req, res){
-    let flag = req.body.flag;
-
-    await fn_setSaleActive(flag);
-
-    console.log('over...');
-    res.send({"result":true});
-});
-async function fn_setSaleActive(_flag){
-
-    //--
-    const from = "0x9C64F3c4e8f5804E9be78529c7C76d3b826043bc";
-    const nonce = await web3.eth.getTransactionCount(from);
-    const networkId = web3.eth.net.getId;
-    //abi
-    //contractAddress
-
-    // 서명된 트랜잭션을 생성
-    const txObject = {
-        from: from,
-        to: contractAddress,
-        nonce: web3.utils.toHex(nonce),
-        gasLimit: web3.utils.toHex(800000),
-        gasPrice: web3.utils.toHex(1000000000), // 예시로 200000으로 설정
-        value: '0x0',
-        data: planetContract.methods.setSaleActive(_flag).encodeABI()
-    };
-    const signedTx = await web3.eth.accounts.signTransaction(txObject, privateKey);
-
-    // 서명된 트랜잭션을 블록체인 네트워크로 전송
-    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-    console.log('setSaleActive 함수 호출 성공:', receipt);
-    //--
-
-
-    console.log('트랜잭션 결과:', receipt);
-
-    //call로 변경 확인
-    const final = await planetContract.methods.isSalesActive().call();
-    console.log('final : '+final);
-
-    return;
-    
-}
-//--------------------------------------------------------------
-//--------------------------------------------------------------
-app.post('/mint', async function(req, res){
+app.post('/nft/mint', async function(req, res){
     let num = req.body.userId;
     let type = req.body.type;
 
-    let userAddress = fn_whois(num);
+    let userAddress = commonJs.fn_whois(num);
 
-    await fn_mint(userAddress, type);
-
+    await fn_nft_mint(userAddress, type);
+    
     console.log('over...');
     res.send({"result":true});
 });
-async function fn_mint(_targetAddress, _type) {
+async function fn_nft_mint(_targetAddress, _type) {
     // userId 값이 필요하다면 여기에서 사용 가능
     console.log('mint() 함수가 실행되었습니다.');
 
@@ -99,12 +64,12 @@ async function fn_mint(_targetAddress, _type) {
     // 서명된 트랜잭션을 생성
     const txObject = {
         from: from,
-        to: contractAddress,
+        to: cerealNFT_address,
         nonce: web3.utils.toHex(nonce),
         gasLimit: web3.utils.toHex(800000),
         gasPrice: web3.utils.toHex(1000000000), // 예시로 200000으로 설정
         value: '0x0',
-        data: planetContract.methods.mintPlanet(_targetAddress, _type).encodeABI()
+        data: cerealNFT_contract.methods.mintPlanet(_targetAddress, _type).encodeABI()
     };
     const signedTx = await web3.eth.accounts.signTransaction(txObject, privateKey);
 
@@ -115,59 +80,199 @@ async function fn_mint(_targetAddress, _type) {
 }
 //--------------------------------------------------------------
 //--------------------------------------------------------------
-app.get("/isSalesActive", (req, res) => {
-    isSalesActive().then((result) => {
-        res.send(result);
-    });
+
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+app.get('/nft/:userId/:tokenId', async function(req, res) {
+    let userId = req.params.userId;
+    const tokenId = req.params.tokenId;
+  
+    //userId mapping
+    userId = commonJs.fn_whois(userId);
+    // userId와 tokenId를 사용하여 필요한 로직 수행
+    // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
+    const imageURI = await fn_NFT_Info(userId, tokenId);
+  
+    // 결과 반환
+    res.send({ "result" : imageURI });
 });
-async function isSalesActive() {
+async function fn_NFT_Info() {
+    let httpImageURI;
 
-    console.log('func start');
+    try {
+        const tokenURI = await cerealSBT_contract.methods.tokenURI(tokenId).call();
+    
+        // IPFS 프로토콜을 HTTP 프로토콜로 변경
+        const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+    
+        // HTTP 요청을 보내 JSON 데이터 가져오기
+        const response = await axios.get(httpURI);
+        const jsonData = response.data;
+    
+        // image 값 추출
+        const imageURI = jsonData.image;
+    
+        // image URI에서 IPFS 프로토콜을 HTTP 프로토콜로 변경
+        httpImageURI = imageURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+        console.log('httpImageURI : '+httpImageURI);
+        // 결과 반환
+        //res.send({ "result": httpImageURI });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
 
-    const result1 = await planetContract.methods.helloworld().call();
-    const result2 = await planetContract.methods.isSalesActive().call();
-    const result3 = await planetContract.methods.name().call();
-    const result4 = await planetContract.methods.tokenURI(1).call();
-
-    console.log(result1);
-    console.log(result2);
-    console.log(result3);
-    console.log(result4);
-
-
+    return httpImageURI;
+  // 함수 내용
 }
 //--------------------------------------------------------------
 //--------------------------------------------------------------
+app.post('/sbt/mint', async function(req, res){
+    let num = req.body.userId;
+    let type = req.body.type;
 
-function fn_whois(_num){
-    var userAddress;
+    let userAddress = commonJs.fn_whois(num);
 
-    switch (_num) {
-        case 1:
-            console.log("숫자 1을 처리합니다.");
-            // 여기에 숫자 1을 처리하는 코드를 추가합니다.
-            userAddress = "0x2148B78C48D78A1D8C9A0C314A90b46F113B460d";
-            break;
-        case 2:
-            console.log("숫자 2를 처리합니다.");
-            // 여기에 숫자 2를 처리하는 코드를 추가합니다.
-            userAddress = "0x632F2032d8E53c3A5F51f3100b73463259Caa1a3";
-            break;
-        case 3:
-            console.log("숫자 3을 처리합니다.");
-            // 여기에 숫자 3을 처리하는 코드를 추가합니다.
-            userAddress = "0xF9bf08d8d1f86799D766A12CB32ACEa5b16D410d";
-            break;
-        case 4:
-            console.log("숫자 4를 처리합니다.");
-            // 여기에 숫자 4를 처리하는 코드를 추가합니다.
-            userAddress = "0x1Cf38CF01686d75539ae295c7276DF196464d471";
-            break;
-        // default:
-        //     console.log("해당하는 경우가 없습니다.");
-            // 만약 num이 1, 2, 3, 4 중에 없는 경우에 실행될 코드를 추가합니다.
-           // break;
-    }
+    await fn_sbt_mint(userAddress, type);
+    
+    console.log('over...');
+    res.send({"result":true});
+});
+async function fn_sbt_mint(_targetAddress, _type) {
+    // userId 값이 필요하다면 여기에서 사용 가능
+    console.log('mint() 함수가 실행되었습니다.');
+    console.log('userAddress : '+_targetAddress);
 
-    return userAddress;
+    const from = "0x9C64F3c4e8f5804E9be78529c7C76d3b826043bc";
+    const nonce = await web3.eth.getTransactionCount(from);
+    const networkId = web3.eth.net.getId;
+    //abi
+    //contractAddress
+
+    // 서명된 트랜잭션을 생성
+    const txObject = {
+        from: from,
+        to: cerealSBT_address,
+        nonce: web3.utils.toHex(nonce),
+        gasLimit: web3.utils.toHex(800000),
+        gasPrice: web3.utils.toHex(1000000000), // 예시로 200000으로 설정
+        value: '0x0',
+        data: cerealSBT_contract.methods.mint(_targetAddress, _type).encodeABI()
+    };
+    const signedTx = await web3.eth.accounts.signTransaction(txObject, privateKey);
+
+    // 서명된 트랜잭션을 블록체인 네트워크로 전송
+    const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+    console.log('mintPlanet 함수 호출 성공:', receipt);
+    return;
 }
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+app.get('/sbt/:userSeq', async function(req, res) {
+    //let num = req.params.userId;
+    const str = req.params.userSeq;
+  
+    //userId mapping
+    let userAddress = commonJs.fn_whois(str);
+    // userId와 tokenId를 사용하여 필요한 로직 수행
+    // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
+    const result = await fn_SBT_Info_ALL(userAddress);
+  
+    // 결과 반환
+    res.send({ "result" : result });
+});
+async function fn_SBT_Info_ALL(_userWalletId) {
+    console.log("_userWalletId : "+_userWalletId);
+    let result;
+
+    try {
+        const bigIntArray = await cerealSBT_contract.methods.getOwnedTokens(_userWalletId).call();
+        const data = [];
+        console.log(bigIntArray);
+
+        const intArray = bigIntArray.map(bigInt => Number(bigInt));
+        console.log(intArray);
+
+        for (let i = 0; i < intArray.length; i++) {
+            
+            const tokenURI = await cerealSBT_contract.methods.tokenURI(intArray[i]).call();
+    
+            // IPFS 프로토콜을 HTTP 프로토콜로 변경
+            const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+    
+           // HTTP 요청을 보내 JSON 데이터 가져오기
+            const response = await axios.get(httpURI);
+            const jsonData = response.data;
+
+            console.log(jsonData);
+            const levelStr = jsonData.attributes.find(attr => attr.trait_type === 'level').value;
+
+
+            data.push({
+                tokenId: intArray[i],
+                level: levelStr
+              });
+            console.log('-------');
+        }
+
+        result = {
+            totalCnt: intArray.length,
+            data: data
+          };
+
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+
+    return result;
+  // 함수 내용
+}
+
+//--------------------------------------------------------------
+//--------------------------------------------------------------
+app.get('/sbt/token/:tokenId', async function(req, res) {
+    //let num = req.params.userId;
+    const tokenId = req.params.tokenId;
+  
+    //userId mapping
+    //let userAddress = fn_whois(num);
+    // userId와 tokenId를 사용하여 필요한 로직 수행
+    // 예시: userId와 tokenId에 해당하는 SBT 정보 조회
+    const imageURI = await fn_SBT_Info(tokenId);
+  
+    // 결과 반환
+    res.send({ "result" : imageURI });
+});
+async function fn_SBT_Info(_tokenId) {
+    let httpImageURI;
+
+    try {
+        const tokenURI = await cerealSBT_contract.methods.tokenURI(_tokenId).call();
+    
+        // IPFS 프로토콜을 HTTP 프로토콜로 변경
+        const httpURI = tokenURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+    
+        // HTTP 요청을 보내 JSON 데이터 가져오기
+        const response = await axios.get(httpURI);
+        const jsonData = response.data;
+    
+        // image 값 추출
+        const imageURI = jsonData.image;
+    
+        // image URI에서 IPFS 프로토콜을 HTTP 프로토콜로 변경
+        httpImageURI = imageURI.replace('ipfs://', 'http://ipfs.io/ipfs/');
+        console.log('httpImageURI : '+httpImageURI);
+        // 결과 반환
+        //res.send({ "result": httpImageURI });
+      } catch (error) {
+        console.error('Error:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
+      }
+
+    return httpImageURI;
+  // 함수 내용
+}
+//--------------------------------------------------------------
+//--------------------------------------------------------------
