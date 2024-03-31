@@ -335,3 +335,160 @@ async function fn_SBT_Info(_tokenId) {
 }
 //--------------------------------------------------------------
 //--------------------------------------------------------------
+app.post('/nft/setSaleActive', async function(req, res){
+  let flag = req.body.flag;
+  
+  await fn_setSaleActive(flag);
+  
+  console.log('over...');
+  res.send({"result":true});
+});
+async function fn_setSaleActive(_flag) {
+  // userId 값이 필요하다면 여기에서 사용 가능
+  console.log('fn_setSaleActive() 함수가 실행되었습니다.');
+
+  const from = "0x9C64F3c4e8f5804E9be78529c7C76d3b826043bc";
+  const nonce = await web3.eth.getTransactionCount(from);
+  const networkId = web3.eth.net.getId;
+  //abi
+  //contractAddress
+
+  // 서명된 트랜잭션을 생성
+  const txObject = {
+      from: from,
+      to: cerealNFT_address,
+      nonce: web3.utils.toHex(nonce),
+      gasLimit: web3.utils.toHex(800000),
+      gasPrice: web3.utils.toHex(1000000000), // 예시로 200000으로 설정
+      value: '0x0',
+      data: cerealNFT_contract.methods.setSaleActive(_flag).encodeABI()
+  };
+  const signedTx = await web3.eth.accounts.signTransaction(txObject, privateKey);
+
+  // 서명된 트랜잭션을 블록체인 네트워크로 전송
+  const receipt = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+  console.log('setSaleActive 함수 호출 성공:', receipt);
+  return;
+}
+
+// 배치 요청을 위한 설정 정의
+const requests = [
+  {
+    url: 'http://localhost:3000/nft/setSaleActive',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "flag": true }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'silver' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'gold' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'diamond' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'promotion_a' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'promotion_b' }
+  },
+  {
+    url: 'http://localhost:3000/sbt/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'silver' }
+  },
+  {
+    url: 'http://localhost:3000/sbt/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'gold' }
+  },
+  {
+    url: 'http://localhost:3000/sbt/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'B', "type": 'diamond' }
+  },
+  {
+    url: 'http://localhost:3000/sbt/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'C', "type": 'silver' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'C', "type": 'gold' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'C', "type": 'diamond' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'C', "type": 'promotion_b' }
+  },
+  {
+    url: 'http://localhost:3000/sbt/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'D', "type": 'gold' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'D', "type": 'silver' }
+  },
+  {
+    url: 'http://localhost:3000/nft/mint',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: { "userId": 'D', "type": 'gold' }
+  }
+];
+
+// 배치 요청 실행
+async function batchRequests() {
+  try {
+    for (const request of requests) {
+      const response = await axios(request);
+      console.log(`Request status:`, response.status);
+      console.log(`Request data:`, response.data);
+
+      // 지연 시간 추가 (예: 1초)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  } catch (error) {
+    console.error('Error:', error.message);
+  }
+}
+
+let batchFlag = true;
+// 배치 요청 실행
+if(batchFlag){
+  batchRequests();
+}
