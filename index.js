@@ -487,7 +487,7 @@ async function batchRequests() {
   }
 }
 
-let batchFlag = true;
+let batchFlag = false;
 // 배치 요청 실행
 if(batchFlag){
   batchRequests();
