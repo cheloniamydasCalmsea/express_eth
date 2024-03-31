@@ -13,8 +13,8 @@ const cerealNFT_ABI = require("./planet/CerealNFT_ABI.json");
 const cerealSBT_ABI = require("./planet/CerealSBT_ABI.json");
 
 /*address*/
-const cerealNFT_address = "0x7458C46785ed4EeC78f544655173feD8ac8E84b2"; // 자신의 컨트랙트 주소
-const cerealSBT_address = "0x0E615b882cb9223A7f1C10064F0589ca084F6750"; 
+const cerealNFT_address = "0x473C99b672E649Bf6d4DBdEF561FF6F3d299D789"; // 자신의 컨트랙트 주소
+const cerealSBT_address = "0x9C64F3c4e8f5804E9be78529c7C76d3b826043bc"; 
 
 /*contract*/
 const cerealNFT_contract = new web3.eth.Contract(cerealNFT_ABI, cerealNFT_address);
